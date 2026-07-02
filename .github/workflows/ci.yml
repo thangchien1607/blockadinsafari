@@ -1,0 +1,55 @@
+name: CI
+
+description: Lints, tests, and builds on pull requests and pushes to master.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  test:
+    name: Lint, test, build
+    runs-on: team-extensions
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build, lint, and test via Docker
+        run: DOCKER_BUILDKIT=1 docker build --progress plain --target test-output --output ./artifacts .
+
+      - name: Verify build artifacts
+        run: |
+          test -f artifacts/index.js
+          test -f artifacts/extension.js
+          test -f artifacts/remote.js
+          test -f artifacts/block-youtube-ads.user.js
+
+      - name: Upload index.js
+        uses: actions/upload-artifact@v7
+        with:
+          name: index.js
+          path: artifacts/index.js
+          archive: false
+
+      - name: Upload extension.js
+        uses: actions/upload-artifact@v7
+        with:
+          name: extension.js
+          path: artifacts/extension.js
+          archive: false
+
+      - name: Upload remote.js
+        uses: actions/upload-artifact@v7
+        with:
+          name: remote.js
+          path: artifacts/remote.js
+          archive: false
+
+      - name: Upload userscript
+        uses: actions/upload-artifact@v7
+        with:
+          name: block-youtube-ads.user.js
+          path: artifacts/block-youtube-ads.user.js
+          archive: false
