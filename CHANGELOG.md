@@ -9,13 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- README instructions for running the userscript automatically on every
+  YouTube page load via the Userscripts Safari extension.
+
 ### Changed
+
+- Userscript now matches only YouTube domains instead of every website.
 
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+
+- Userscript failing at `document-start` when `document.head` does not exist
+  yet.
 
 ### Security
 

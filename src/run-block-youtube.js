@@ -241,7 +241,8 @@ export function runBlockYoutube() {
             const rule = `${selectors.join(', ')} { display: none!important; }`;
             const style = document.createElement('style');
             style.innerHTML = rule;
-            document.head.appendChild(style);
+            // document.head may not exist yet when run at document-start
+            (document.head || document.documentElement).appendChild(style);
         };
 
         /**
@@ -384,7 +385,7 @@ export function runBlockYoutube() {
 #${LOGO_ID} { white-space: nowrap; }
 .mobile-topbar-header-sign-in-button { display: none; }
 .ytmusic-nav-bar#left-content #${LOGO_ID} { display: block; }`;
-            document.head.appendChild(style);
+            (document.head || document.documentElement).appendChild(style);
         };
 
         const addAdGuardLogo = () => {
@@ -446,8 +447,10 @@ export function runBlockYoutube() {
     const script = document.createElement('script');
     const scriptText = pageScript.toString().replace('__logo_text__', getMessage('logo'));
     script.innerHTML = `(${scriptText})();`;
-    document.head.appendChild(script);
-    document.head.removeChild(script);
+    // The userscript runs at document-start, when document.head may not exist yet
+    const scriptParent = document.head || document.documentElement;
+    scriptParent.appendChild(script);
+    scriptParent.removeChild(script);
 
     return {
         success: true,

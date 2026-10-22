@@ -18,6 +18,7 @@ Safari's Content Blocking capabilities are [no longer enough](https://adguard.co
 
 - [Getting Started](#getting-started)
 - [Usage](#usage)
+- [Automatic Mode](#automatic-mode)
 - [Remote Version](#remote-version)
 - [Supported Languages](#supported-languages)
 - [FAQ / Troubleshooting](#faq--troubleshooting)
@@ -50,7 +51,21 @@ Tap a link above on your iPhone or iPad and the Shortcuts app opens with an **Ad
 
 To make the shortcut easier to reach, tap **Edit actions...** in the Share sheet and add it to your **Favorites** with the **Plus** icon.
 
-> **Note**: You need to run the shortcut again every time you reload or navigate to a new YouTube page.
+> **Note**: You need to run the shortcut again every time you reload or navigate to a new YouTube page. To block ads automatically without tapping anything, see [Automatic Mode](#automatic-mode).
+
+---
+
+## Automatic Mode
+
+iOS Shortcuts cannot run JavaScript on a page by themselves — the **Run JavaScript on Web Page** action only works when you launch it from the Share sheet, and Shortcuts automations cannot trigger it. To block ads automatically every time you open YouTube, use the userscript build with a userscript manager instead.
+
+1. Install the free [Userscripts](https://apps.apple.com/app/userscripts/id1463298887) app from the App Store.
+2. Open the app and choose a folder where your userscripts will be stored.
+3. Enable the extension: **Settings → Apps → Safari → Extensions → Userscripts**, turn it on, and allow it on `youtube.com` (or **All Websites**).
+4. Download `block-youtube-ads.user.js` from the [latest GitHub Release](https://github.com/AdguardTeam/BlockYouTubeAdsShortcut/releases/latest) (or build it yourself, see [Development](#development)) and save it into the Userscripts folder.
+5. Open [youtube.com](https://youtube.com) in Safari. The script runs automatically on every page load and reload — the AdGuard logo in the YouTube header confirms that it is active.
+
+The userscript only runs on `www.youtube.com`, `m.youtube.com`, `music.youtube.com`, and `www.youtube-nocookie.com`.
 
 ---
 
@@ -76,7 +91,7 @@ English, Russian, Spanish, German, French, Italian, Simplified Chinese, Traditio
 Tap **Edit actions...** in the Share sheet, find **Block YouTube Ads (by AdGuard)**, and add it to Favorites with the **Plus** icon.
 
 **I reloaded the page and ads came back.**
-The shortcut must be re-run each time you reload YouTube. This is expected — the injected script does not persist across page navigation.
+The shortcut must be re-run each time you reload YouTube. This is expected — the injected script does not persist across page navigation. Use [Automatic Mode](#automatic-mode) if you want ads blocked on every load without re-running anything.
 
 **It doesn't work in Chrome / Firefox / the YouTube app.**
 The shortcut uses the Safari Share sheet and only runs in Safari on iPhone and iPad.
