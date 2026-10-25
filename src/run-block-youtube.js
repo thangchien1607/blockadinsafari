@@ -261,6 +261,25 @@ export function runBlockYoutube() {
         };
 
         /**
+         * Calls the "callback" function on video playback events.
+         * When the video plays in Picture-in-Picture or in the background,
+         * the page DOM barely changes, so the DOM observer is not enough there,
+         * while media events keep firing.
+         * Media events do not bubble, so they are caught in the capture phase.
+         *
+         * @param {Function} callback callback function
+         */
+        const observeVideoEvents = (callback) => {
+            ['loadedmetadata', 'playing', 'timeupdate', 'ended'].forEach((eventName) => {
+                document.addEventListener(eventName, (event) => {
+                    if (event.target instanceof HTMLVideoElement) {
+                        callback();
+                    }
+                }, true);
+            });
+        };
+
+        /**
          * This function is supposed to be called on every DOM change
          */
         const hideDynamicAds = () => {
@@ -278,25 +297,78 @@ export function runBlockYoutube() {
             });
         };
 
+        // Video element that played the last ad and its muted state before the ad started,
+        // null when no ad is showing
+        let stateBeforeAd = null;
+
         /**
-         * This function checks if the video ads are currently running
-         * and auto-clicks the skip button.
+         * Restores the audio of the video after a skipped ad.
+         * Safari may keep the audio output broken after the ad was seeked,
+         * so the video is re-seeked to its current position once it has data,
+         * which makes Safari re-sync the audio track.
+         *
+         * @param {HTMLVideoElement} video video element
+         * @param {boolean} muted muted state to restore
+         */
+        const restoreAudio = (video, muted) => {
+            video.muted = muted;
+
+            const resync = () => {
+                const { currentTime } = video;
+                video.currentTime = currentTime;
+            };
+            if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+                resync();
+            } else {
+                video.addEventListener('loadedmetadata', resync, { once: true });
+            }
+        };
+
+        /**
+         * This function checks if the video ads are currently running,
+         * scrolls them to the end muted and auto-clicks the skip button.
+         *
+         * The ad is seeked slightly before its end instead of exactly to the end:
+         * in Safari, seeking to the very end breaks the audio of the video element
+         * and the next video plays without sound.
          */
         const autoSkipAds = () => {
-            // If there's a video that plays the ad at this moment, scroll this ad
-            if (document.querySelector('.ad-showing')) {
-                const video = document.querySelector('video');
-                if (video && video.duration) {
-                    video.currentTime = video.duration;
-                    // Skip button should appear after that,
-                    // now simply click it automatically
-                    setTimeout(() => {
-                        const skipBtn = document.querySelector('button.ytp-ad-skip-button');
-                        if (skipBtn) {
-                            skipBtn.click();
-                        }
-                    }, 100);
+            const adVideo = document.querySelector('.html5-video-player.ad-showing video');
+            if (!adVideo) {
+                if (stateBeforeAd !== null) {
+                    // The player reuses the ad video element for the main video,
+                    // fall back to the player video if it was replaced
+                    const video = stateBeforeAd.video.isConnected
+                        ? stateBeforeAd.video
+                        : document.querySelector('.html5-video-player video');
+                    if (video) {
+                        restoreAudio(video, stateBeforeAd.muted);
+                    }
+                    stateBeforeAd = null;
                 }
+                return;
+            }
+
+            if (stateBeforeAd === null) {
+                stateBeforeAd = {
+                    video: adVideo,
+                    muted: adVideo.muted,
+                };
+            } else {
+                stateBeforeAd.video = adVideo;
+            }
+            adVideo.muted = true;
+
+            // Scroll the ad only once, the observer fires on every DOM change
+            const { duration } = adVideo;
+            if (Number.isFinite(duration) && adVideo.currentTime < duration - 0.5) {
+                adVideo.currentTime = Math.max(duration - 0.1, 0);
+            }
+
+            // Skip button should appear after that, now simply click it automatically
+            const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
+            if (skipBtn) {
+                skipBtn.click();
             }
         };
 
@@ -354,7 +426,7 @@ export function runBlockYoutube() {
             Response.prototype.json = new Proxy(nativeResponseJson, {
                 apply(...args) {
                     // Call the target function, get the original Promise
-                    const promise = Reflect.apply(args);
+                    const promise = Reflect.apply(...args);
 
                     // Create a new one and override the JSON inside
                     return new Promise((resolve, reject) => {
@@ -429,19 +501,33 @@ export function runBlockYoutube() {
         // Removes ads metadata from YouTube XHR requests
         jsonOverride('adPlacements', []);
         jsonOverride('playerAds', []);
+        jsonOverride('adSlots', []);
 
         // Applies CSS that hides YouTube ad elements
         hideElements(window.location.hostname);
 
+        /**
+         * Runs the specified tasks one by one, so that a failing task
+         * (e.g. after YouTube changes its layout) does not prevent the others from running
+         *
+         * @param {Function[]} tasks functions to run
+         */
+        const runTasks = (tasks) => {
+            tasks.forEach((task) => {
+                try {
+                    task();
+                } catch (ex) {
+                    console.log(`task failed: ${ex}`);
+                }
+            });
+        };
+
+        const pageChangeTasks = [addAdGuardLogo, hideDynamicAds, autoSkipAds];
+
         // Some changes should be re-evaluated on every page change
-        addAdGuardLogo();
-        hideDynamicAds();
-        autoSkipAds();
-        observeDomChanges(() => {
-            addAdGuardLogo();
-            hideDynamicAds();
-            autoSkipAds();
-        });
+        runTasks(pageChangeTasks);
+        observeDomChanges(() => runTasks(pageChangeTasks));
+        observeVideoEvents(() => runTasks([autoSkipAds]));
     };
 
     const script = document.createElement('script');
